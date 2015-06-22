@@ -1,63 +1,64 @@
 // Adapter: Hide the Emscripten specific implementation and provide the same kind of API
-// that is used in the old version from the AIR project
-
-Module= Emscripten.Module;
+// that is used in the old version from the AIR project (so that the two implementations
+// can be directly compared)
 
 Info = function() {
-	Module.ccall('asap_getInfo', 'number');
+	this.Module= backend_ASAP.Module;
+	this.Module.ccall('asap_getInfo', 'number');
 }
 Info.prototype = {
 	getTitleOrFilename: function() {
-		var ret= Module.ccall('asapinfo_GetTitleOrFilename', 'number');
-		return Module.Pointer_stringify(ret);
+		var ret= this.Module.ccall('asapinfo_GetTitleOrFilename', 'number');
+		return this.Module.Pointer_stringify(ret);
 	},
 	getAuthor: function() {
-		var ret= Module.ccall('asapinfo_GetAuthor', 'number');
-		return Module.Pointer_stringify(ret);
+		var ret= this.Module.ccall('asapinfo_GetAuthor', 'number');
+		return this.Module.Pointer_stringify(ret);
 	},
 	getDate: function() {
-		var ret= Module.ccall('asapinfo_GetDate', 'number');
-		return Module.Pointer_stringify(ret);
+		var ret= this.Module.ccall('asapinfo_GetDate', 'number');
+		return this.Module.Pointer_stringify(ret);
 	},
 	getSongs: function() {
-		var ret= Module.ccall('asapinfo_GetSongs', 'number');
+		var ret= this.Module.ccall('asapinfo_GetSongs', 'number');
 		return ret;
 	},
 	getDefaultSong: function() {
-		var ret= Module.ccall('asapinfo_GetDefaultSong', 'number');
+		var ret= this.Module.ccall('asapinfo_GetDefaultSong', 'number');
 		return ret;
 	},
 	getLoop: function(id) {
-		var ret = Module.ccall('asapinfo_GetLoop', 'number', ['number'], [id]);
+		var ret = this.Module.ccall('asapinfo_GetLoop', 'number', ['number'], [id]);
 		return ret;
 	},
 	getDuration: function(id) {
-		var ret = Module.ccall('asapinfo_GetDuration', 'number', ['number'], [id]);
+		var ret = this.Module.ccall('asapinfo_GetDuration', 'number', ['number'], [id]);
 		return ret;
 	},
 	getChannels: function(id) {
-		var ret = Module.ccall('asapinfo_GetChannels', 'number', ['number'], [id]);
+		var ret = this.Module.ccall('asapinfo_GetChannels', 'number', ['number'], [id]);
 		return ret;
 	},
 }
 
 ASAP = function() {
+	this.Module= backend_ASAP.Module;
 }
 ASAP.prototype = {
 	load: function(name, module, moduleLen) {	
 		var byteArray = new Uint8Array(module);
 
-		var buf = Module._malloc(byteArray.length);
-		Module.HEAPU8.set(byteArray, buf);
-		var ret = Module.ccall('asap_load', 'number', ['string', 'number', 'number'], [name, buf, byteArray.length]);
+		var buf = this.Module._malloc(byteArray.length);
+		this.Module.HEAPU8.set(byteArray, buf);
+		var ret = this.Module.ccall('asap_load', 'number', ['string', 'number', 'number'], [name, buf, byteArray.length]);
 		
-		Module._free(buf);
+		this.Module._free(buf);
 	},
 	getInfo: function() {
 		return new Info();
 	},
-	playSong: function(id, duration) {
-		var ret = Module.ccall('asap_playSong', 'number', ['number', 'number'], [id, duration]);
+	playSong: function(id, duration, boostVolume) {
+		var ret = this.Module.ccall('asap_playSong', 'number', ['number', 'number', 'number'], [id, duration, boostVolume]);
 		return ret;
 
 	},
@@ -72,14 +73,14 @@ ASAP.prototype = {
 		var sampleSize= (format == 0) ? 1 : 2;		// in bytes
 
 		var numOfBytesToFill= samplesPerChannel * channels * sampleSize;
-		var buf = Module._malloc(numOfBytesToFill);		// alloc buffer for C code to use..
+		var buf = this.Module._malloc(numOfBytesToFill);		// alloc buffer for C code to use..
 			
-		var retLenBytes = Module.ccall('asap_generate', 'number', ['number', 'number', 'number'], [buf, numOfBytesToFill, format]);
+		var retLenBytes = this.Module.ccall('asap_generate', 'number', ['number', 'number', 'number'], [buf, numOfBytesToFill, format]);
 		
-		var result = (format==0) ?	Module.HEAPU8.subarray(buf, (buf+retLenBytes)): 
-									Module.HEAP16.subarray(buf>>1, (buf+retLenBytes)>>1 );
+		var result = (format==0) ?	this.Module.HEAPU8.subarray(buf, (buf+retLenBytes)): 
+									this.Module.HEAP16.subarray(buf>>1, (buf+retLenBytes)>>1 );
 							
-		Module._free(buf);
+		this.Module._free(buf);
 		
 		if (format == 0) {
 			// unsigned 1 byte samples
@@ -98,7 +99,7 @@ ASAP.prototype = {
 					buffer.writeFloat(v);
 			}			
 		}		
-		return samplesPerChannel;
+		return retLenBytes / channels / sampleSize;
 	},
 }
 

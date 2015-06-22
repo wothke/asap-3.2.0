@@ -32,6 +32,7 @@
 #define EMSCRIPTEN_KEEPALIVE
 #endif
 
+extern void setBoostVolume(unsigned char b);
 
 static ASAP* asap= 0; 
 static const ASAPInfo* info= 0;
@@ -58,8 +59,9 @@ cibool EMSCRIPTEN_KEEPALIVE asap_load(const char *filename, unsigned char *buf, 
 	return ASAP_Load(getAsap(), filename, buf, len);
 }
 
-cibool asap_playSong(int song, int duration) __attribute__((noinline));
-cibool EMSCRIPTEN_KEEPALIVE asap_playSong(int song, int duration) {
+cibool asap_playSong(int song, int duration, int boostVolume) __attribute__((noinline));
+cibool EMSCRIPTEN_KEEPALIVE asap_playSong(int song, int duration, int boostVolume) {
+	setBoostVolume(boostVolume & 0xff);
 	return ASAP_PlaySong(getAsap(), song, duration);
 }
 

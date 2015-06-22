@@ -3,6 +3,14 @@
 #include <string.h>
 #include "asap.h"
 
+#ifdef EMSCRIPTEN
+unsigned char boostVolume;
+
+void setBoostVolume(unsigned char b) {
+	boostVolume= b;
+}
+#endif
+
 typedef enum {
 	ASAPModuleType_SAP_B,
 	ASAPModuleType_SAP_C,
@@ -7512,7 +7520,11 @@ static int PokeyPair_Generate(PokeyPair *self, unsigned char *buffer, int buffer
 	for (; i < samplesEnd; i++) {
 		int sample;
 		accLeft += self->basePokey.deltaBuffer[i] - (accLeft * 3 >> 10);
+#ifndef EMSCRIPTEN
 		sample = accLeft >> 11;
+#else
+		sample = (accLeft >> 11) << boostVolume;
+#endif
 		if (sample < -32767)
 			sample = -32767;
 		else if (sample > 32767)

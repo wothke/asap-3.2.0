@@ -1,6 +1,4 @@
-# asap-3.2.0 
-
-webasap (Web version of ASAP - see live demo: http://www.wothke.ch/webasap/)
+webasap (Web plugin of ASAP - see live demo: http://www.wothke.ch/webasap/)
 =======
 
 	Copyright (C) 2015 Juergen Wothke
@@ -21,7 +19,8 @@ webasap (Web version of ASAP - see live demo: http://www.wothke.ch/webasap/)
 
 	Original C code of "ASAP" (see http://http://asap.sourceforge.net//).
 
-
+This is a JavaScript/WebAudio plugin of ASAP. This plugin is designed to work with version 1.0 of my 
+generic WebAudio ScriptProcessor music player (see separate project). 
 
 This project is based on ASAP version 3.2.0: The respective asap.h & asap.c files have been copied here (unchanged).
 
@@ -37,6 +36,9 @@ that a command prompt has been opened within that folder and the Emscripten envi
 set (i.e. emsdk_env.bat has been called).
 
 
-Running the makeEmscripten.bat in the project folder will generate the asap.js emulator file in the 'htdocs' sub-folder.
-The content of the respective folder can be deployed in some arbitrary folder under the document root of your web server 
-for testing.
+Running the makeEmscripten.bat in the project folder will generate the backend_asap.js emulator file in the 'htdocs' 
+sub-folder. The content of the respective folder can be deployed in some arbitrary folder under the document root of your 
+web server for testing. (As an add-on the script also creates an asap.js file which provides the same API as 
+the respective file from the original ASAP project. This file allows to directly compare the performance of the Emscripten
+generated code with the original one..)
+
