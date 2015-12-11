@@ -80,7 +80,7 @@ ASAPBackendAdapter = (function(){ var $this = function () {
 		registerFileData: function(pathFilenameArray, data) {
 			return 0;	// FS not used in ASAP
 		},
-		loadMusicData: function(sampleRate, path, filename, data) {
+		loadMusicData: function(sampleRate, path, filename, data, options) {
 			var module = new Uint8Array(data);
 
 			try {
