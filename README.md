@@ -1,5 +1,4 @@
-webasap (Web plugin of ASAP - see live demo: http://www.wothke.ch/webasap/)
-=======
+# webasap (Web plugin of ASAP - see live demo: http://www.wothke.ch/webasap/)
 
 	Copyright (C) 2015 Juergen Wothke
 
@@ -19,26 +18,25 @@ webasap (Web plugin of ASAP - see live demo: http://www.wothke.ch/webasap/)
 
 	Original C code of "ASAP" (see http://http://asap.sourceforge.net//).
 
-This is a JavaScript/WebAudio plugin of ASAP. This plugin is designed to work with version 1.0 of my 
+This is a JavaScript/WebAudio plugin of ASAP. This plugin is designed to work with my 
 generic WebAudio ScriptProcessor music player (see separate project). 
 
 This project is based on ASAP version 3.2.0: The respective asap.h & asap.c files have been copied here (unchanged).
 
 
-How to build:
+## How to build
 
-You'll need emscripten to build the web version (I used the win installer: emsdk-1.13.0-full-32bit.exe 
-which (at the time) could be found here: http://kripken.github.io/emscripten-site/docs/getting_started/downloads.html)
-I did not need to perform ANY manual changes on the installation. 
+You'll need Emscripten (http://kripken.github.io/emscripten-site/docs/getting_started/downloads.html). The make script 
+is designed for use of emscripten version 1.37.29 (unless you want to create WebAssembly output, older versions might 
+also still work).
 
-I assume that the asap-3.2.0 project folder has been moved into the main emscripten folder (maybe not necessary) and 
-that a command prompt has been opened within that folder and the Emscripten environment vars have been 
-set (i.e. emsdk_env.bat has been called).
+The below instructions assume that the asap-3.2.0 project folder has been moved into the main emscripten 
+installation folder (maybe not necessary) and that a command prompt has been opened within the 
+project's "emscripten" sub-folder, and that the Emscripten environment vars have been previously 
+set (run emsdk_env.bat).
 
-
-Running the makeEmscripten.bat in the project folder will generate the backend_asap.js emulator file in the 'htdocs' 
-sub-folder. The content of the respective folder can be deployed in some arbitrary folder under the document root of your 
-web server for testing. (As an add-on the script also creates an asap.js file which provides the same API as 
-the respective file from the original ASAP project. This file allows to directly compare the performance of the Emscripten
-generated code with the original one..)
+The Web version is then built using the makeEmscripten.bat that can be found in this folder. The 
+script will compile directly into the "emscripten/htdocs" example web folder, were it will create 
+the backend_asap.js library. The content of the "htdocs" can be tested by first copying into some 
+document folder of a web server (this running example shows how the code is used). 
 
