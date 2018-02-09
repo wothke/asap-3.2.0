@@ -48,6 +48,11 @@ ASAPBackendAdapter = (function(){ var $this = function () {
 		this._songInfo= new Object();
 	}; 
 	extend(AudioBackendAdapterBase, $this, {
+		/* async emscripten init means that adapter may not immediately be ready - see async WASM compilation */
+		isAdapterReady: function() { 
+			if (typeof this._asap.Module.notReady === "undefined")	return true; // default for backward compatibility		
+			return !this._asap.Module.notReady;
+		},		
 		readFloatSample: function(buffer, idx) {
 			return buffer[idx];
 		},

@@ -40,3 +40,7 @@ script will compile directly into the "emscripten/htdocs" example web folder, we
 the backend_asap.js library. The content of the "htdocs" can be tested by first copying into some 
 document folder of a web server (this running example shows how the code is used). 
 
+## Dependencies
+The current version requires version 1.02 (older versions will not
+support WebAssembly) of my https://github.com/wothke/webaudio-player.
+
