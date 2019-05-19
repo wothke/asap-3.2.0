@@ -33,26 +33,43 @@ ASAPArrayAccessor.prototype = {
 		this.wrapped[this.idx++]= val;
 	},
 }
-
-ASAPBackendAdapter = (function(){ var $this = function () { 
+// CAUTION: bufSize must be same as the one used for WebAudio!
+ASAPBackendAdapter = (function(){ var $this = function (bufSize) { 
 		$this.base.call(this, 2, 4);
 		
-		this.SAMPLES_PER_BUFFER = 8192;		// allowed: buffer sizes: 256, 512, 1024, 2048, 4096, 8192, 16384
 		this._asapSampleRate= 44100;					// rate expected by ASAP
 		
-		// original input: 2 channels interleaved
-		this._sourceBuffer = new Float32Array(this.SAMPLES_PER_BUFFER*2);
-
-		this._asap = new ASAP();
+		this._samples_per_buffer= 0;		// must be kept in sync with whatever WebAudio is using
+		this._sourceBuffer= null;
+				
+		this._asap = new ASAP();	// see adapter.js
 		this._info;
 		this._songInfo= new Object();
+		
+		this.Module= backend_ASAP.Module;
+		this._scopeEnabled= false;
 	}; 
 	extend(AudioBackendAdapterBase, $this, {
+		enableScope: function(enable) {
+			this._scopeEnabled= enable;
+		},		
+		assertOutputBuffer: function() {
+			var webAudioBufSize = (typeof window.SAMPLES_PER_BUFFER == 'undefined') ? 8192 : window.SAMPLES_PER_BUFFER;
+			
+			// original input: 2 channels interleaved
+			if (this._samples_per_buffer != webAudioBufSize) {
+				this._samples_per_buffer = webAudioBufSize;		// allowed: buffer sizes: 256, 512, 1024, 2048, 4096, 8192, 16384
+				this._sourceBuffer = new Float32Array(this._samples_per_buffer*2);	// always produce "stereo"
+			}			
+		},		
 		/* async emscripten init means that adapter may not immediately be ready - see async WASM compilation */
 		isAdapterReady: function() { 
 			if (typeof this._asap.Module.notReady === "undefined")	return true; // default for backward compatibility		
 			return !this._asap.Module.notReady;
-		},		
+		},
+		applyPanning: function(buffer, len, pan) {
+			// not implemented
+		},
 		readFloatSample: function(buffer, idx) {
 			return buffer[idx];
 		},
@@ -69,13 +86,17 @@ ASAPBackendAdapter = (function(){ var $this = function () {
 		},
 	
 		getAudioBuffer: function() {
+			this.assertOutputBuffer();
 			return this._sourceBuffer;	
 		},
 		getAudioBufferLength: function() {
+			this.assertOutputBuffer();
 			return this._sourceBuffer.length>>1;
 		},
 		computeAudioSamples: function() {
-			var len= this._asap.generate(new ASAPArrayAccessor(this._sourceBuffer), SAMPLES_PER_BUFFER, 0) <<1;	
+			this.assertOutputBuffer();
+			
+			var len= this._asap.generate(new ASAPArrayAccessor(this._sourceBuffer), this._samples_per_buffer, 0) << 1;	
 			if (len <= 0) return 1; // <=0 means "end song"			
 			return 0;	
 		},
@@ -89,7 +110,7 @@ ASAPBackendAdapter = (function(){ var $this = function () {
 			var module = new Uint8Array(data);
 
 			try {
-				this._asap.load(filename, module, module.length);
+				this._asap.load(filename, module, module.length, this._scopeEnabled ? 1 : 0);
 				this._info = this._asap.getInfo();
 			} catch (ex) {
 				alert(ex);
@@ -135,6 +156,27 @@ ASAPBackendAdapter = (function(){ var $this = function () {
 			result.songReleased= this._songInfo.songReleased;
 			result.maxSubsong= this._songInfo.maxSubsong;
 			result.actualSubsong= this._songInfo.actualSubsong;		
-		}
+		},
+		// To activate the below output use enableScope() first - note: the below functions
+		// are not available in the original/alternative ASAP lib, i.e. respective they would need
+		// to be disabled ..
+		getNumberTraceStreams: function() {
+			return this.Module.ccall('asap_number_trace_streams', 'number');			
+		},
+		getTraceStreams: function() {
+			var result= [];
+			var n= this.getNumberTraceStreams();
+
+			var ret = this.Module.ccall('asap_trace_streams', 'number');			
+			var array = this.Module.HEAP32.subarray(ret>>2, (ret>>2)+n);
+			
+			for (var i= 0; i<n; i++) {
+				result.push(array[i] >> 1);	// pointer to int16 array
+			}
+			return result;
+		},
+		readFloatTrace: function(buffer, idx) {
+			return (this.Module.HEAP16[buffer+idx])/0x8000;
+		},
 	});	return $this; })();
 	

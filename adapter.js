@@ -8,35 +8,35 @@ Info = function() {
 }
 Info.prototype = {
 	getTitleOrFilename: function() {
-		var ret= this.Module.ccall('asapinfo_GetTitleOrFilename', 'number');
+		var ret= this.Module.ccall('asap_get_title', 'number');
 		return this.Module.Pointer_stringify(ret);
 	},
 	getAuthor: function() {
-		var ret= this.Module.ccall('asapinfo_GetAuthor', 'number');
+		var ret= this.Module.ccall('asap_get_author', 'number');
 		return this.Module.Pointer_stringify(ret);
 	},
 	getDate: function() {
-		var ret= this.Module.ccall('asapinfo_GetDate', 'number');
+		var ret= this.Module.ccall('asap_get_date', 'number');
 		return this.Module.Pointer_stringify(ret);
 	},
 	getSongs: function() {
-		var ret= this.Module.ccall('asapinfo_GetSongs', 'number');
+		var ret= this.Module.ccall('asap_get_songs', 'number');
 		return ret;
 	},
 	getDefaultSong: function() {
-		var ret= this.Module.ccall('asapinfo_GetDefaultSong', 'number');
+		var ret= this.Module.ccall('asap_get_default_song', 'number');
 		return ret;
 	},
 	getLoop: function(id) {
-		var ret = this.Module.ccall('asapinfo_GetLoop', 'number', ['number'], [id]);
+		var ret = this.Module.ccall('asap_get_loop', 'number', ['number'], [id]);
 		return ret;
 	},
 	getDuration: function(id) {
-		var ret = this.Module.ccall('asapinfo_GetDuration', 'number', ['number'], [id]);
+		var ret = this.Module.ccall('asap_get_duration', 'number', ['number'], [id]);
 		return ret;
 	},
 	getChannels: function(id) {
-		var ret = this.Module.ccall('asapinfo_GetChannels', 'number', ['number'], [id]);
+		var ret = this.Module.ccall('asap_get_channels', 'number', ['number'], [id]);
 		return ret;
 	},
 }
@@ -45,12 +45,12 @@ ASAP = function() {
 	this.Module= backend_ASAP.Module;
 }
 ASAP.prototype = {
-	load: function(name, module, moduleLen) {	
+	load: function(name, module, moduleLen, scopeEnabled) {	
 		var byteArray = new Uint8Array(module);
 
 		var buf = this.Module._malloc(byteArray.length);
 		this.Module.HEAPU8.set(byteArray, buf);
-		var ret = this.Module.ccall('asap_load', 'number', ['string', 'number', 'number'], [name, buf, byteArray.length]);
+		var ret = this.Module.ccall('asap_load', 'number', ['string', 'number', 'number', 'number'], [name, buf, byteArray.length, scopeEnabled]);
 		
 		this.Module._free(buf);
 	},
@@ -75,7 +75,7 @@ ASAP.prototype = {
 		var numOfBytesToFill= samplesPerChannel * channels * sampleSize;
 		var buf = this.Module._malloc(numOfBytesToFill);		// alloc buffer for C code to use..
 			
-		var retLenBytes = this.Module.ccall('asap_generate', 'number', ['number', 'number', 'number'], [buf, numOfBytesToFill, format]);
+		var retLenBytes = this.Module.ccall('asap_generate', 'number', ['number', 'number', 'number', 'number'], [buf, numOfBytesToFill, format, samplesPerChannel]);
 		
 		var result = (format==0) ?	this.Module.HEAPU8.subarray(buf, (buf+retLenBytes)): 
 									this.Module.HEAP16.subarray(buf>>1, (buf+retLenBytes)>>1 );
@@ -98,7 +98,7 @@ ASAP.prototype = {
 				if (channels == 1)
 					buffer.writeFloat(v);
 			}			
-		}		
+		}
 		return retLenBytes / channels / sampleSize;
 	},
 }

@@ -4,11 +4,12 @@
 #include "asap.h"
 
 #ifdef EMSCRIPTEN
-unsigned char boostVolume;
+unsigned char boost_volume;
 
-void setBoostVolume(unsigned char b) {
-	boostVolume= b;
+void set_boost_volume(unsigned char b) {
+	boost_volume= b;
 }
+
 #endif
 
 typedef enum {
@@ -186,7 +187,12 @@ struct PokeyPair {
 };
 static void PokeyPair_Construct(PokeyPair *self);
 static int PokeyPair_EndFrame(PokeyPair *self, int cycle);
+
+#ifdef EMSCRIPTEN
+static int PokeyPair_Generate(PokeyPair *self, unsigned char *buffer, int bufferOffset, int blocks, ASAPSampleFormat format, unsigned char** scope_buffers, int channels);
+#else
 static int PokeyPair_Generate(PokeyPair *self, unsigned char *buffer, int bufferOffset, int blocks, ASAPSampleFormat format);
+#endif
 static void PokeyPair_Initialize(PokeyPair *self, cibool ntsc, cibool stereo);
 static cibool PokeyPair_IsSilent(PokeyPair const *self);
 static int PokeyPair_Peek(PokeyPair const *self, int addr, int cycle);
@@ -219,7 +225,11 @@ static void ASAP_Call6502Player(ASAP *self);
 static int ASAP_Do6502Frame(ASAP *self);
 static cibool ASAP_Do6502Init(ASAP *self, int pc, int a, int x, int y);
 static int ASAP_DoFrame(ASAP *self);
+#ifdef EMSCRIPTEN
+static int ASAP_GenerateAt(ASAP *self, unsigned char *buffer, int bufferOffset, int bufferLen, ASAPSampleFormat format, unsigned char** scope_buffers);
+#else
 static int ASAP_GenerateAt(ASAP *self, unsigned char *buffer, int bufferOffset, int bufferLen, ASAPSampleFormat format);
+#endif
 static void ASAP_HandleEvent(ASAP *self);
 static int ASAP_MillisecondsToBlocks(int milliseconds);
 static int ASAP_PeekHardware(ASAP const *self, int addr);
@@ -2058,13 +2068,23 @@ static int ASAP_DoFrame(ASAP *self)
 	PokeyPair_EndFrame(&self->pokeys, cycles);
 	return cycles;
 }
-
+#ifdef EMSCRIPTEN
+int ASAP_Generate(ASAP *self, unsigned char *buffer, int bufferLen, ASAPSampleFormat format, unsigned char** scope_buffers)
+{
+	return ASAP_GenerateAt(self, buffer, 0, bufferLen, format, scope_buffers);
+}
+#else
 int ASAP_Generate(ASAP *self, unsigned char *buffer, int bufferLen, ASAPSampleFormat format)
 {
 	return ASAP_GenerateAt(self, buffer, 0, bufferLen, format);
 }
-
+#endif
+	
+#ifdef EMSCRIPTEN
+static int ASAP_GenerateAt(ASAP *self, unsigned char *buffer, int bufferOffset, int bufferLen, ASAPSampleFormat format, unsigned char** scope_buffers)
+#else
 static int ASAP_GenerateAt(ASAP *self, unsigned char *buffer, int bufferOffset, int bufferLen, ASAPSampleFormat format)
+#endif
 {
 	int blockShift;
 	int bufferBlocks;
@@ -2080,7 +2100,11 @@ static int ASAP_GenerateAt(ASAP *self, unsigned char *buffer, int bufferOffset, 
 	}
 	block = 0;
 	for (;;) {
+#ifdef EMSCRIPTEN
+		int blocks = PokeyPair_Generate(&self->pokeys, buffer, bufferOffset + (block << blockShift), bufferBlocks - block, format, scope_buffers, self->moduleInfo.channels);
+#else
 		int blocks = PokeyPair_Generate(&self->pokeys, buffer, bufferOffset + (block << blockShift), bufferBlocks - block, format);
+#endif
 		int cycles;
 		self->blocksPlayed += blocks;
 		block += blocks;
@@ -7505,8 +7529,24 @@ static int PokeyPair_EndFrame(PokeyPair *self, int cycle)
 	return self->readySamplesEnd;
 }
 
+#ifdef EMSCRIPTEN
+static int PokeyPair_Generate(PokeyPair *self, unsigned char *buffer, int bufferOffset, int blocks, ASAPSampleFormat format, unsigned char** scope_buffers, int channels)
+{
+	// note: bufferOffset for the main "buffer" was calculated using:
+	//	blockShift = self->moduleInfo.channels - 1 + (format != ASAPSampleFormat_U8 ? 1 : 0);
+	//  bufferOffset =(block << blockShift)
+	//  => the correct blockShift for the single channel scope_buffers should always be 1 (since it also uses 16bit like the sample data)
+	
+	int bufferOffsetL= (channels == 1) ? bufferOffset : (bufferOffset >> 1); 
+	int bufferOffsetR= bufferOffsetL;
+	
+	unsigned char* bufferL= scope_buffers ? scope_buffers[0] : 0;
+	unsigned char* bufferR= scope_buffers ? scope_buffers[1] : 0;
+#else
 static int PokeyPair_Generate(PokeyPair *self, unsigned char *buffer, int bufferOffset, int blocks, ASAPSampleFormat format)
 {
+#endif
+	
 	int i = self->readySamplesStart;
 	int samplesEnd = self->readySamplesEnd;
 	int accLeft;
@@ -7523,12 +7563,20 @@ static int PokeyPair_Generate(PokeyPair *self, unsigned char *buffer, int buffer
 #ifndef EMSCRIPTEN
 		sample = accLeft >> 11;
 #else
-		sample = (accLeft >> 11) << boostVolume;
+		sample = (accLeft >> (11-boost_volume));
 #endif
 		if (sample < -32767)
 			sample = -32767;
 		else if (sample > 32767)
 			sample = 32767;
+			
+#ifdef EMSCRIPTEN
+		if (bufferL) {
+			bufferL[bufferOffsetL++] = (unsigned char) sample;
+			bufferL[bufferOffsetL++] = (unsigned char) (sample >> 8);
+		}
+#endif
+		
 		switch (format) {
 		case ASAPSampleFormat_U8:
 			buffer[bufferOffset++] = (sample >> 8) + 128;
@@ -7549,6 +7597,14 @@ static int PokeyPair_Generate(PokeyPair *self, unsigned char *buffer, int buffer
 				sample = -32767;
 			else if (sample > 32767)
 				sample = 32767;
+			
+#ifdef EMSCRIPTEN
+			if (bufferR) {
+				bufferR[bufferOffsetR++] = (unsigned char) sample;
+				bufferR[bufferOffsetR++] = (unsigned char) (sample >> 8);
+			}
+#endif
+			
 			switch (format) {
 			case ASAPSampleFormat_U8:
 				buffer[bufferOffset++] = (sample >> 8) + 128;

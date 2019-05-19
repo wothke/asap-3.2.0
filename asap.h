@@ -57,7 +57,11 @@ void ASAP_DetectSilence(ASAP *self, int seconds);
  * @param bufferLen Number of bytes to fill.
  * @param format Format of samples.
  */
+#ifdef EMSCRIPTEN
+int ASAP_Generate(ASAP *self, unsigned char *buffer, int bufferLen, ASAPSampleFormat format, unsigned char** scope_buffers );
+#else
 int ASAP_Generate(ASAP *self, unsigned char *buffer, int bufferLen, ASAPSampleFormat format);
+#endif
 
 /**
  * Returns current playback position in blocks.

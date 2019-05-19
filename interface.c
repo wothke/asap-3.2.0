@@ -32,93 +32,121 @@
 #define EMSCRIPTEN_KEEPALIVE
 #endif
 
-extern void setBoostVolume(unsigned char b);
+extern void set_boost_volume(unsigned char b);
 
-static ASAP* asap= 0; 
-static const ASAPInfo* info= 0;
+static ASAP* _asap= 0; 
+static const ASAPInfo* _info= 0;
 
 
-ASAP* getAsap() {
-	if (asap == 0)
-		asap= ASAP_New();
-	return asap;
+#define MAX_SCOPE_BUFFERS 2								// left/right
+short _scope_enabled = 0;
+unsigned char* _scope_buffers[MAX_SCOPE_BUFFERS];		// actually used for shorts; output "scope" streams corresponding to final audio buffer
+
+
+ASAP* get_ASAP() {
+	if (_asap == 0)
+		_asap= ASAP_New();
+	return _asap;
 }
 
 int asap_getInfo() __attribute__((noinline));
 int EMSCRIPTEN_KEEPALIVE asap_getInfo() {
-    info= ASAP_GetInfo(getAsap());
+    _info= ASAP_GetInfo(get_ASAP());
 	return 0;
 }
 
-cibool asap_load(const char *filename, unsigned char *buf, long len) __attribute__((noinline));
-cibool EMSCRIPTEN_KEEPALIVE asap_load(const char *filename, unsigned char *buf, long len) {
-	if (asap != 0) {
-		ASAP_Delete(asap);
-		asap= 0;
+cibool asap_load(const char *filename, unsigned char *buf, long len, int scope_enabled) __attribute__((noinline));
+cibool EMSCRIPTEN_KEEPALIVE asap_load(const char *filename, unsigned char *buf, long len, int scope_enabled) {
+	if (_asap != 0) {
+		ASAP_Delete(_asap);
+		_asap= 0;
 	}
-	return ASAP_Load(getAsap(), filename, buf, len);
+	_scope_enabled= scope_enabled;
+	
+	if (_scope_enabled) {					// for some reason allocating this dynamically from asap_generate() introduced noise/clicks..
+		if (_scope_buffers[0] == 0) {
+			for (int i= 0; i<MAX_SCOPE_BUFFERS; i++) {
+				_scope_buffers[i]= (unsigned char*) calloc(sizeof(short), 16384); 	// just alloc enough for the possible maximum
+			}
+		}
+	}
+	
+	return ASAP_Load(get_ASAP(), filename, buf, len);
 }
 
-cibool asap_playSong(int song, int duration, int boostVolume) __attribute__((noinline));
-cibool EMSCRIPTEN_KEEPALIVE asap_playSong(int song, int duration, int boostVolume) {
-	setBoostVolume(boostVolume & 0xff);
-	return ASAP_PlaySong(getAsap(), song, duration);
+cibool asap_playSong(int song, int duration, int boost_volume) __attribute__((noinline));
+cibool EMSCRIPTEN_KEEPALIVE asap_playSong(int song, int duration, int boost_volume) {
+	set_boost_volume(boost_volume & 0xff);
+		
+	return ASAP_PlaySong(get_ASAP(), song, duration);
 }
 
-int asap_generate(unsigned char *buffer, int bufferLen, int format) __attribute__((noinline));
-int EMSCRIPTEN_KEEPALIVE asap_generate(unsigned char *buffer, int bufferLen, int format) {
-	ASAPSampleFormat f;
-	switch(format) {
+int asap_generate(unsigned char *buffer, int bytes_to_fill, int format, int samples_per_channel) __attribute__((noinline));
+int EMSCRIPTEN_KEEPALIVE asap_generate(unsigned char *buffer, int bytes_to_fill, int format_id, int samples_per_channel) {
+	// 	bytes_to_fill= samples_per_channel * channels * sampleSize;
+	
+	ASAPSampleFormat format;
+	switch(format_id) {
 		case 1:
-			f= ASAPSampleFormat_S16_L_E;
+			format= ASAPSampleFormat_S16_L_E;
 			break;
 		case 2:
-			f= ASAPSampleFormat_S16_B_E;
+			format= ASAPSampleFormat_S16_B_E;
 			break;
 		default:
-			f= ASAPSampleFormat_U8;
+			format= ASAPSampleFormat_U8;
 			break;
 	}
-	return ASAP_Generate(getAsap(), buffer, bufferLen, f);
+			
+	return ASAP_Generate(get_ASAP(), buffer, bytes_to_fill, format, _scope_enabled ? _scope_buffers : 0);
 }
 
-const char *asapinfo_GetTitleOrFilename() __attribute__((noinline));
-const char *EMSCRIPTEN_KEEPALIVE asapinfo_GetTitleOrFilename() {
-	return ASAPInfo_GetTitleOrFilename(info);
+const char *asap_get_title() __attribute__((noinline));
+const char *EMSCRIPTEN_KEEPALIVE asap_get_title() {
+	return ASAPInfo_GetTitleOrFilename(_info);
 }
 
-const char *asapinfo_GetDate() __attribute__((noinline));
-const char *EMSCRIPTEN_KEEPALIVE asapinfo_GetDate() {
-	return ASAPInfo_GetDate(info);
+const char *asap_get_date() __attribute__((noinline));
+const char *EMSCRIPTEN_KEEPALIVE asap_get_date() {
+	return ASAPInfo_GetDate(_info);
 }
 
-const char *asapinfo_GetAuthor() __attribute__((noinline));
-const char *EMSCRIPTEN_KEEPALIVE asapinfo_GetAuthor() {
-	return ASAPInfo_GetAuthor(info);
+const char *asap_get_author() __attribute__((noinline));
+const char *EMSCRIPTEN_KEEPALIVE asap_get_author() {
+	return ASAPInfo_GetAuthor(_info);
 }
 
-int asapinfo_GetDefaultSong() __attribute__((noinline));
-int EMSCRIPTEN_KEEPALIVE asapinfo_GetDefaultSong() {
-	return ASAPInfo_GetDefaultSong(info);
+int asap_get_default_song() __attribute__((noinline));
+int EMSCRIPTEN_KEEPALIVE asap_get_default_song() {
+	return ASAPInfo_GetDefaultSong(_info);
 }
 
-int asapinfo_GetSongs() __attribute__((noinline));
-int EMSCRIPTEN_KEEPALIVE asapinfo_GetSongs() {
-	return ASAPInfo_GetSongs(info);
+int asap_get_songs() __attribute__((noinline));
+int EMSCRIPTEN_KEEPALIVE asap_get_songs() {
+	return ASAPInfo_GetSongs(_info);
 }
 
-int asapinfo_GetChannels() __attribute__((noinline));
-int EMSCRIPTEN_KEEPALIVE asapinfo_GetChannels() {
-	return ASAPInfo_GetChannels(info);
+int asap_get_channels() __attribute__((noinline));
+int EMSCRIPTEN_KEEPALIVE asap_get_channels() {
+	return ASAPInfo_GetChannels(_info);
 }
 
-int asapinfo_GetDuration(int song) __attribute__((noinline));
-int EMSCRIPTEN_KEEPALIVE asapinfo_GetDuration(int song) {
-	return ASAPInfo_GetDuration(info, song);
+int asap_get_duration(int song) __attribute__((noinline));
+int EMSCRIPTEN_KEEPALIVE asap_get_duration(int song) {
+	return ASAPInfo_GetDuration(_info, song);
 }
 
-cibool asapinfo_GetLoop(int song) __attribute__((noinline));
-cibool EMSCRIPTEN_KEEPALIVE asapinfo_GetLoop(int song) {
-	return ASAPInfo_GetLoop(info, song);
+cibool asap_get_loop(int song) __attribute__((noinline));
+cibool EMSCRIPTEN_KEEPALIVE asap_get_loop(int song) {
+	return ASAPInfo_GetLoop(_info, song);
+}
+
+int asap_number_trace_streams() __attribute__((noinline));
+int EMSCRIPTEN_KEEPALIVE asap_number_trace_streams() {
+	return _scope_enabled ? asap_get_channels() : 0;
+}
+const char** asap_trace_streams() __attribute__((noinline));
+const char** EMSCRIPTEN_KEEPALIVE asap_trace_streams() {
+	return (const char**)_scope_buffers;	// ugly cast to make emscripten happy
 }
 
