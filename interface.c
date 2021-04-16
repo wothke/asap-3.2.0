@@ -141,6 +141,11 @@ cibool EMSCRIPTEN_KEEPALIVE asap_get_loop(int song) {
 	return ASAPInfo_GetLoop(_info, song);
 }
 
+// note: one POKEY chip supposedly has 4 voices/channels each of which can
+// output a configurable rectangle-wave, voices can then be pair-wise combined..
+// via CPU digi-samples can be played.. i.e. respectice voice streams could be
+// shown to provide more detailed output
+
 int asap_number_trace_streams() __attribute__((noinline));
 int EMSCRIPTEN_KEEPALIVE asap_number_trace_streams() {
 	return _scope_enabled ? asap_get_channels() : 0;
